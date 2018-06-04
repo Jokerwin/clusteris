@@ -5,6 +5,7 @@ import threading
 
 import numpy as np
 import pandas as pd
+import wx
 
 from config.view import ConfigView
 from config.interactor import Interactor as ConfigInteractor
