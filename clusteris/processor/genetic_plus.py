@@ -25,9 +25,14 @@ class Genetic(object):
         """ Se inicializan los parametros del procesador genético."""
         self.NClusters = params['n_clusters']
 
+    def SetListener(self, listener):
+        self.listener = listener
+
     def Fit(self, dataset):
         """ Calcula la mejor distribución de los puntos del dataset, según los parámetros elegidos."""
         t = Timer()
+
+        # self.listener.Start()
 
         t.AddTime("Start")
         self.dataset = dataset
@@ -125,6 +130,8 @@ class Genetic(object):
 
             t.AddTime("Iteration %d" % it)
 
+            self.listener.Update(it+10)
+
         # 7. Ultima condición de parada, fin de las iteraciones
         # Si no encontré una solución antes, uso la mejor despues del proceso
         if self.bestIndividual is None:
@@ -136,6 +143,7 @@ class Genetic(object):
         t.PrintTimes()
 
         print('DEBUG - Fitness: %s' % self.fitness[minFit])
+        # self.listener.Finish()
 
     def GetCentroids(self):
         """ Devuelve los centroides calculados."""

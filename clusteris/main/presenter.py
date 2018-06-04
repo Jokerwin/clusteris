@@ -1,190 +1,107 @@
 # -*- coding: utf-8 -*-
 
 import csv
-import importlib
+import threading
 
 import numpy as np
 import pandas as pd
 
-import processor.genetic
+from config.view import ConfigView
+from config.interactor import Interactor as ConfigInteractor
+from config.presenter import Presenter as ConfigPresenter
+
+from model import Results
 from plotter import Plotter
-from processor.dummy import Dummy
-from processor.kmeans import KMeans
 from processor.genetic_plus import Genetic
+from processor.kmeans import KMeans
+from progress import ProgressListener
 
 class Presenter(object):
     """
     Process UI events and updates view with results.
     """
 
-    def __init__(self, view, interactor, params):
+    def __init__(self, view, interactor, model, params):
         self.view = view
         self.interactor = interactor
+        self.model = model
         self.params = params
 
         interactor.Connect(self, view)
 
-        self.InitModel()
         self.InitView()
 
-        view.Start()
-
-    def InitModel(self):
-        self.dataset = None
-        self.datasetPath = ""
-        self.parseAttributes = False
-        self.datasetSamplesCount = 0
-        self.datasetFeaturesCount = 0
-        self.clusteringAlgorithm = self.params.CLUSTERING_ALGORITHM_DEFAULT
-        self.centroidsNumber = self.params.CENTROID_DEFAULT_VALUE
-        self.samples = []
-
     def InitView(self):
-        """Sets default values for the UI."""
-        self.view.SetParseFeaturesCheckbox(self.params.DATASET_PARSE_FEATURES_DEFAULT_VALUE)
-        self.view.SetLabelSamplesCountText('Cantidad de muestras: N/A')
-        self.view.SetLabelFeaturesCountText('Cantidad de atributos: N/A')
-        self.view.SetStatusBarText('Archivo dataset: No seleccionado.')
-        self.view.SetCentroidSpinRange(self.params.CENTROID_MIN_VALUE, self.params.CENTROID_MAX_VALUE)
-        self.view.SetCentroidSpinValue(self.params.CENTROID_DEFAULT_VALUE)
-        self.view.SetAlgorithmList(self.params.CLUSTERING_ALGORITHMS)
-        self.view.SetAlgorithmSelection(self.params.CLUSTERING_ALGORITHM_DEFAULT)
+        self.view.SetStatusBarText("Archivo dataset: No seleccionado", 0)
+        self.view.SetStatusBarText("--", 1)
+        self.view.SetStatusBarText("--", 2)
+        self.view.SetStatusBarText("--", 3)
 
-        self._DisablePlotterOptions()
+        self.view.DisableExportMenus()
+        self.view.DisableProcess()
 
-        self.view.DisableProcessButton()
+    def ShowDatasetConfigDialog(self):
+        print('DEBUG - ShowDatasetConfigDialog')
 
+        view = ConfigView(self.view)
+        interactor = ConfigInteractor()
+        presenter = ConfigPresenter(view, interactor, self.model, self.params)
+
+        presenter.Start()
     def ShowFileDialog(self):
         self.view.ShowFileDialog()
-
-    def SetAlgorithm(self, index, name):
-        print("DEBUG - Selected index: %d; value: %s" % (index, name))
-        self.clusteringAlgorithm = index
-
-    def SetCentroidParam(self, value):
-        print("DEBUG - Selected value: %d" % value)
-        self.centroidsNumber = value
-
-    def ToggleParseAttributes(self, isChecked):
-        print('DEBUG - Parse attributes: %s' % isChecked)
-        self.parseAttributes = isChecked
-        self.ParseDatasetFile()
 
     def SetSelectedFile(self, path):
         print('DEBUG - Selected path: %s' % path)
         self.datasetPath = path
+        self.model.datasetPath = path
 
         self.ParseDatasetFile()
 
     def ParseDatasetFile(self):
         try:
-            delimiter = self._DetectDelimiter(self.datasetPath)
-            if (not self.parseAttributes):
-                parseHeader = None
-            else:
-                parseHeader = 0
+            delimiter = self._DetectDelimiter(self.model.datasetPath)
+
+            parseHeader = None
 
             print('DEBUG - CSV Delimiter: %s' % delimiter)
 
             # Reads CSV file as Pandas DataFrame
-            self.dataset = pd.read_csv(self.datasetPath, header=parseHeader, sep=delimiter)
+            self.model.dataset = pd.read_csv(self.model.datasetPath, header=parseHeader, sep=delimiter)
 
-            self.datasetSamplesCount, self.datasetFeaturesCount = list(self.dataset.shape)
-            self.columnNames = ["Column %s" % str(c) for c in self.dataset.columns]
+            # self.datasetSamplesCount, self.datasetFeaturesCount = list(self.dataset.shape)
+            self.model.datasetRows, self.model.datasetCols = list(self.model.dataset.shape)
+            self.model.datasetColsNames = ["Column %s" % str(c) for c in self.model.dataset.columns]
 
-            attributes = ", ".join(str(c) for c in self.dataset.columns)
+            attributes = ", ".join(str(c) for c in self.model.dataset.columns)
 
-            print('DEBUG - Dataset samples: %d' % self.datasetSamplesCount)
-            print('DEBUG - Dataset attributes: %s' % self.datasetFeaturesCount)
+            print('DEBUG - Dataset samples: %d' % self.model.datasetRows)
+            print('DEBUG - Dataset attributes: %s' % self.model.datasetCols)
             print('DEBUG - Dataset attributes names: %s' % attributes)
 
-            self.view.SetLabelSamplesCountText('Cantidad de muestras: %d' % self.datasetSamplesCount)
-            self.view.SetLabelFeaturesCountText('Cantidad de atributos: %d' % self.datasetFeaturesCount)
-            self.view.SetStatusText('Archivo dataset: %s' % self.datasetPath)
+            self.view.SetStatusBarText("Archivo dataset: %s" % self.model.datasetPath, 0)
+            self.view.SetStatusBarText("FILAS: %d" % self.model.datasetRows, 1)
+            self.view.SetStatusBarText("COLS: %d" % self.model.datasetCols, 2)
+            self.view.SetStatusBarText("HEADERS: %s" % ("NO" if parseHeader is None else "SI"), 3)
 
-            self.view.EnableProcessButton()
+            self.view.EnableProcess()
 
-            self.columnsForAxes = range(3)
+            self.model.colsForAxes = range(3)
 
-            if (self.datasetFeaturesCount == 2):
-                self.view.Enable2DRadio()
+            ## Dataset Processing
 
-                self.Radio2DClicked(True)
+            samples = []
 
-            if (self.datasetFeaturesCount >= 3):
-                self.view.Enable2DRadio()
-                self.view.Enable3DRadio()
-                self.view.Set3DSelected()
+            # Split Pandas DataFrame into columns
+            for i in self.model.dataset.columns:
+                samples.append(self.model.dataset[i].values)
 
-                self.Radio3DClicked(True)
+            # Convert DataFrame columns into Numpy Array
+            self.model.dataset = np.array(list(zip(*samples)))
+            self._ShowDatasetAsTable()
 
         except IOError:
-            self.view.ShowErrorMessage("Error al abrir el archivo '%s'." % self.datasetPath)
-
-    def Radio2DClicked(self, value):
-        print('DEBUG - Plotter 2D: %s' % value)
-        if value:
-            self.axesAvailable = 2
-            self._SetAllAxesList(self.columnNames)
-            self.view.SetZAxeList([])
-            self.view.DisableZAxeChoice()
-
-            self.view.SetXAxeSelection(0)
-            self.SetSelectedAxe(0, 0)
-            self.view.SetYAxeSelection(1)
-            self.SetSelectedAxe(1, 1)
-
-            if (self.datasetFeaturesCount > 2):
-                self.view.EnableXAxeChoice()
-                self.view.EnableYAxeChoice()
-
-    def Radio3DClicked(self, value):
-        print('DEBUG - Plotter 3D: %s' % value)
-        if value:
-            self.axesAvailable = 3
-            self._SetAllAxesList(self.columnNames)
-
-            self._DisableAllLists()
-
-            self.view.SetXAxeSelection(0)
-            self.SetSelectedAxe(0, 0)
-            self.view.SetYAxeSelection(1)
-            self.SetSelectedAxe(1, 1)
-            self.view.SetZAxeSelection(2)
-            self.SetSelectedAxe(2, 2)
-
-            if (self.datasetFeaturesCount > 3):
-                self.view.EnableXAxeChoice()
-                self.view.EnableYAxeChoice()
-                self.view.EnableZAxeChoice()
-
-    def SetSelectedAxe(self, axe, value):
-        print('DEBUG - Selected axe value: %d - %d' % (axe, value))
-        self.columnsForAxes[axe] = value
-        print("Axes:: %s" % self.columnsForAxes)
-
-    def _DisablePlotterOptions(self):
-        self.view.Disable2DRadio()
-        self.view.Disable3DRadio()
-
-        self._DisableAllLists()
-
-    def _SetAllAxesList(self, value):
-        self.view.SetXAxeList(self.columnNames)
-        self.view.SetYAxeList(self.columnNames)
-        self.view.SetZAxeList(self.columnNames)
-
-    def _DisableAllLists(self):
-        self.view.DisableXAxeChoice()
-        self.view.DisableYAxeChoice()
-        self.view.DisableZAxeChoice()
-
-    def _IsPlotterConfigValid(self):
-        for i in range(self.axesAvailable - 1):
-            if self.columnsForAxes[i] == self.columnsForAxes[i+1]:
-                return False
-
-        return True
+            self.view.ShowErrorMessage("Error al abrir el archivo '%s'." % self.model.datasetPath)
 
     def _DetectDelimiter(self, path):
         """Tries to infer the delimiter symbol in a CSV file using csv Sniffer class."""
@@ -195,60 +112,93 @@ class Presenter(object):
             dialect = sniffer.sniff(line)
             return dialect.delimiter
 
+    def _ShowDatasetAsTable(self):
+        self.view.ResetGrid()
+        self.view.ShowDataset(self.model.dataset, self.model.datasetColsNames)
+
+    def ShowExportImageDialog(self):
+        print('DEBUG - ShowExportImageDialog')
+
+    def ShowExportCsvDialog(self):
+        print('DEBUG - ShowExportCsvDialog')
+
     def Process(self):
-        if self.dataset is None:
-            self.view.ShowErrorMessage("No se ha seleccionado el dataset aún.")
-            return False
+        self.result = Results()
 
-        if not self._IsPlotterConfigValid():
-            self.view.ShowErrorMessage("Las columnas para los ejes seleccionados debe ser distinta para cada uno.")
-            return False
+        self.listener = ProgressListener(self.view)
 
-        samples = []
 
-        # Split Pandas DataFrame into columns
-        for i in self.dataset.columns:
-            samples.append(self.dataset[i].values)
 
-        # Convert DataFrame columns into Numpy Array
-        Dataset = np.array(list(zip(*samples)))
+        e = threading.Event()
 
-        className = self.params.CLUSTERING_PROCESSORS[self.clusteringAlgorithm]
+        threads = []
 
-        procModule = []
+        threadProcess = threading.Thread(name="Clustering", target=self._ProcessThread, args=(e, self.listener))
+        # threadPlotter = threading.Thread(name="Plotter", target=self._PlotThread, args=(e,))
 
-        procModule.append(importlib.import_module('processor.dummy'))
-        procModule.append(importlib.import_module('processor.kmeans'))
-        procModule.append(importlib.import_module('processor.genetic_plus'))
+        # threadProgress.setDaemon(True)
+        # threadProcess.setDaemon(True)
+        # threadPlotter.setDaemon(True)
 
-        procClass = getattr(procModule[self.clusteringAlgorithm], className)
+        # threads.append(threadProgress)
+        threads.append(threadProcess)
+        # threads.append(threadPlotter)
 
-        processor = procClass({'n_clusters': self.centroidsNumber})
-        processor.Fit(Dataset)
+        for k, v in enumerate(threads):
+            print('DEBUG - Iniciando thread: %d' % k)
+            v.start()
 
-        labels = processor.GetLabels()
-        centroids = processor.GetCentroids()
+        self.listener.Start()
+
+        # for k, v in enumerate(threads):
+        #     v.join()
+        #     print('DEBUG - Thread %d detenido.' % k)
+
+        # threadProgress.start()
+        # threadProcess.start()
+        # threadPlotter.start()
+
+        # threadProgress.join()
+        # threadProcess.join()
+        # threadPlotter.join()
+
+    def _ProgressThread(self):
+        self.listener.Start()
+
+    def _ProcessThread(self, event, listener):
+        # self.listener = ProgressListener(self.view)
+        # threadProgress.start()
+
+        processor = Genetic({'n_clusters': 3})
+
+        processor.SetListener(listener)
+        processor.Fit(self.model.dataset)
+
+        self.result.labels = processor.GetLabels()
+        self.result.centroids = processor.GetCentroids()
+
+        self.view.ShowDataset(self.model.dataset, self.model.datasetColsNames, self.result.labels)
+
+        self.view.EnableExportMenus()
+
+        print("Event set!")
+
+        wx.CallAfter(self.listener.Finish)
+        event.set()
+
+    def _PlotThread(self, event):
+        event.wait()
 
         plotter = Plotter()
 
-        clusters = self.centroidsNumber
-
-        if (self.clusteringAlgorithm == 0):
-            clusters = 1
-
-        if (self.axesAvailable < 3):
-            clusters = self.centroidsNumber
-            if (self.clusteringAlgorithm == 0):
-                clusters = 1
-            plotter.PlotSamples2D(Dataset, axes=self.columnsForAxes, labels=labels, clusters=clusters)
-
-            if (len(centroids)):
-                plotter.PlotCentroids2D(centroids, axes=self.columnsForAxes)
-
-        else:
-            plotter.PlotSamples3D(Dataset, axes=self.columnsForAxes, labels=labels, clusters=clusters)
-
-            if (len(centroids)):
-                plotter.PlotCentroids3D(centroids, axes=self.columnsForAxes)
+        plotter.PlotSamples2D(self.model.dataset, axes=self.model.colsForAxes, labels=self.result.labels, clusters=3)
+        plotter.PlotCentroids2D(self.result.centroids, axes=self.model.colsForAxes)
 
         plotter.Show()
+
+    def Close(self):
+        print('DEBUG - Exiting program...')
+        self.view.Destroy()
+
+    def Start(self):
+        self.view.Start()

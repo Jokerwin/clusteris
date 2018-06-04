@@ -10,51 +10,43 @@ class Interactor(object):
         self.presenter = presenter
         self.view = view
 
-        view.buttonSelectDataset.Bind(wx.EVT_BUTTON, self.OnFileSelectorClicked)
-        view.checkParseFeatures.Bind(wx.EVT_CHECKBOX, self.OnParseAttributesToggle)
-        view.buttonProcess.Bind(wx.EVT_BUTTON, self.OnProcessClicked)
-        view.choiceAlgorithm.Bind(wx.EVT_CHOICE, self.OnAlgorithmSelected)
-        view.spinCentroidsParam.Bind(wx.EVT_SPINCTRL, self.OnCentroidSpinCtrl)
+        # Menu Archivo
+        view.Bind(wx.EVT_MENU, self.OnOpenDatasetClicked, view.mItemDataset)
+        view.Bind(wx.EVT_MENU, self.OnExportImageClicked, view.mItemExportImage)
+        view.Bind(wx.EVT_MENU, self.OnExportCsvClicked, view.mItemExportCsv)
+        view.Bind(wx.EVT_MENU, self.OnExitClicked, view.mItemExit)
 
-        view.radioBtn2D.Bind(wx.EVT_RADIOBUTTON, self.OnRadioButton2DClicked)
-        view.radioBtn3D.Bind(wx.EVT_RADIOBUTTON, self.OnRadioButton3DClicked)
+        # Menu Proceso
+        view.Bind(wx.EVT_MENU, self.OnProcessDataset, view.mItemProcess)
 
-        view.choiceXAxe.Bind(wx.EVT_CHOICE, self.OnXAxeSelected)
-        view.choiceYAxe.Bind(wx.EVT_CHOICE, self.OnYAxeSelected)
-        view.choiceZAxe.Bind(wx.EVT_CHOICE, self.OnZAxeSelected)
+        view.Bind(wx.EVT_CLOSE, self.OnExitClicked)
 
         view.Bind(view.EVT_FILE_SELECTED, self.OnFileSelected)
+        # view.Bind(view.EVT_PLOTTER_ATTACHED, self.OnPlotterAttached)
 
-    def OnFileSelectorClicked(self, evt):
+    def OnOpenDatasetClicked(self, evt):
         self.presenter.ShowFileDialog()
+
+    # def OnPlotterAttached(self, evt):
+    #     self.view.Bind(wx.EVT_PAINT, self.OnWindowChange)
+    #     self.view.Bind(wx.EVT_SIZE, self.OnWindowChange)
+
+    # def OnWindowChange(self, evt):
+    #     self.view.canvas.draw()
+    #     evt.Skip()
+
+    def OnExportImageClicked(self, evt):
+        self.presenter.ShowExportImageDialog()
+
+    def OnExportCsvClicked(self, evt):
+        self.presenter.ShowExportCsvDialog()
 
     def OnFileSelected(self, evt):
         self.presenter.SetSelectedFile(evt.path)
 
-    def OnParseAttributesToggle(self, evt):
-        self.presenter.ToggleParseAttributes(evt.IsChecked())
-
-    def OnAlgorithmSelected(self, evt):
-        self.presenter.SetAlgorithm(evt.GetSelection(), evt.GetString())
-
-    def OnCentroidSpinCtrl(self, evt):
-        self.presenter.SetCentroidParam(evt.GetPosition())
-
-    def OnRadioButton2DClicked(self, evt):
-        self.presenter.Radio2DClicked(evt.IsChecked())
-
-    def OnRadioButton3DClicked(self, evt):
-        self.presenter.Radio3DClicked(evt.IsChecked())
-
-    def OnXAxeSelected(self, evt):
-        self.presenter.SetSelectedAxe(0, evt.GetSelection())
-
-    def OnYAxeSelected(self, evt):
-        self.presenter.SetSelectedAxe(1, evt.GetSelection())
-
-    def OnZAxeSelected(self, evt):
-        self.presenter.SetSelectedAxe(2, evt.GetSelection())
-
-    def OnProcessClicked(self, evt):
+    def OnProcessDataset(self, evt):
+        # self.presenter.ShowDatasetConfigDialog()
         self.presenter.Process()
 
+    def OnExitClicked(self, evt):
+        self.presenter.Close()
