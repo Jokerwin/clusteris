@@ -56,6 +56,9 @@ class MainView (wx.Frame):
         self.mItemProcess = wx.MenuItem(self.menuProcess, wx.ID_ANY, u"P&rocesar dataset"+ u"\t" + u"CTRL+r", wx.EmptyString, wx.ITEM_NORMAL)
         self.menuProcess.Append(self.mItemProcess)
 
+        self.mItemPlot = wx.MenuItem(self.menuProcess, wx.ID_ANY, u"&Graficar" + u"\t" + u"CTRL+g", wx.EmptyString, wx.ITEM_NORMAL)
+        self.menuProcess.Append(self.mItemPlot)
+
         self.menubarMain.Append(self.menuProcess, u"&Procesamiento")
 
         self.menuHelp = wx.Menu()
@@ -117,12 +120,6 @@ class MainView (wx.Frame):
         self.gridResult.SetDefaultCellAlignment(wx.ALIGN_LEFT, wx.ALIGN_TOP)
         container.Add(self.gridResult, 0, wx.ALL, 5)
 
-    def ResetGrid(self):
-        table = self.gridResult.GetTable()
-
-        print("Print rows: %s" % table.GetRowsCount())
-        print("Print cols: %s" % table.GetColsCount())
-
     def ShowDataset(self, dataset, colsNames, labels = False):
         rows, cols = dataset.shape
 
@@ -174,6 +171,12 @@ class MainView (wx.Frame):
     def EnableProcess(self):
         self.mItemProcess.Enable(True)
 
+    def DisablePlotMenu(self):
+        self.mItemPlot.Enable(False)
+
+    def EnablePlotMenu(self):
+        self.mItemPlot.Enable(True)
+
     def ShowFileDialog(self):
         """Shows file dialog and dispatch custom event after dataset file is selected."""
 
@@ -199,6 +202,20 @@ class MainView (wx.Frame):
 
     def ShowErrorMessage(self, message):
         wx.LogError(message)
+
+    def ShowProgressDialog(self):
+        print('DEBUG - Show Progress')
+        self.progress = wx.ProgressDialog("Procesando dataset", "por favor espere", maximum=100, parent=self, style=wx.PD_SMOOTH|wx.PD_AUTO_HIDE)
+        self.progress.ShowModal()
+
+    def AdjustProgressRange(self, maxRange):
+        self.progress.SetRange(maxRange)
+
+    def UpdateProgress(self, progress):
+        self.progress.Update(progress)
+
+    def DestroyProgressDialog(self):
+        self.progress.EndModal(True)
 
     def Start(self):
         """ Initializes the main loop for this UI. Starts listening events."""

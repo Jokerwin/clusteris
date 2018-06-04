@@ -18,6 +18,7 @@ class Interactor(object):
 
         # Menu Proceso
         view.Bind(wx.EVT_MENU, self.OnProcessDataset, view.mItemProcess)
+        view.Bind(wx.EVT_MENU, self.OnPlotResults, view.mItemPlot)
 
         view.Bind(wx.EVT_CLOSE, self.OnExitClicked)
 
@@ -26,14 +27,6 @@ class Interactor(object):
 
     def OnOpenDatasetClicked(self, evt):
         self.presenter.ShowFileDialog()
-
-    # def OnPlotterAttached(self, evt):
-    #     self.view.Bind(wx.EVT_PAINT, self.OnWindowChange)
-    #     self.view.Bind(wx.EVT_SIZE, self.OnWindowChange)
-
-    # def OnWindowChange(self, evt):
-    #     self.view.canvas.draw()
-    #     evt.Skip()
 
     def OnExportImageClicked(self, evt):
         self.presenter.ShowExportImageDialog()
@@ -47,6 +40,9 @@ class Interactor(object):
     def OnProcessDataset(self, evt):
         # self.presenter.ShowDatasetConfigDialog()
         self.presenter.Process()
+
+    def OnPlotResults(self, evt):
+        self.presenter.Plot()
 
     def OnExitClicked(self, evt):
         self.presenter.Close()
