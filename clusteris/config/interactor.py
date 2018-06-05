@@ -10,29 +10,19 @@ class Interactor(object):
         self.presenter = presenter
         self.view = view
 
-        view.buttonSelectDataset.Bind(wx.EVT_BUTTON, self.OnFileSelectorClicked)
-        view.checkParseFeatures.Bind(wx.EVT_CHECKBOX, self.OnParseAttributesToggle)
-        view.buttonProcess.Bind(wx.EVT_BUTTON, self.OnProcessClicked)
+        view.buttonGraphic.Bind(wx.EVT_BUTTON, self.OnGraphicClicked)
         view.choiceAlgorithm.Bind(wx.EVT_CHOICE, self.OnAlgorithmSelected)
         view.spinCentroidsParam.Bind(wx.EVT_SPINCTRL, self.OnCentroidSpinCtrl)
-
         view.radioBtn2D.Bind(wx.EVT_RADIOBUTTON, self.OnRadioButton2DClicked)
         view.radioBtn3D.Bind(wx.EVT_RADIOBUTTON, self.OnRadioButton3DClicked)
-
         view.choiceXAxe.Bind(wx.EVT_CHOICE, self.OnXAxeSelected)
         view.choiceYAxe.Bind(wx.EVT_CHOICE, self.OnYAxeSelected)
         view.choiceZAxe.Bind(wx.EVT_CHOICE, self.OnZAxeSelected)
-
-        view.Bind(view.EVT_FILE_SELECTED, self.OnFileSelected)
-
-    def OnFileSelectorClicked(self, evt):
-        self.presenter.ShowFileDialog()
-
-    def OnFileSelected(self, evt):
-        self.presenter.SetSelectedFile(evt.path)
-
-    def OnParseAttributesToggle(self, evt):
-        self.presenter.ToggleParseAttributes(evt.IsChecked())
+        view.spinPopulationParam.Bind(wx.EVT_SPINCTRL, self.OnPopulationSpinCtrl)
+        view.spinIterationParam.Bind(wx.EVT_SPINCTRL, self.OnIterationsSpinCtrl)
+        view.radioFixedClassParam.Bind(wx.EVT_RADIOBUTTON, self.OnRadioFixedClassParamClicked)
+        view.radioVarClassParam.Bind(wx.EVT_RADIOBUTTON, self.OnRadioVarClassParamClicked)
+        view.buttonProcess.Bind(wx.EVT_BUTTON, self.OnProcessClicked)
 
     def OnAlgorithmSelected(self, evt):
         self.presenter.SetAlgorithm(evt.GetSelection(), evt.GetString())
@@ -55,6 +45,21 @@ class Interactor(object):
     def OnZAxeSelected(self, evt):
         self.presenter.SetSelectedAxe(2, evt.GetSelection())
 
-    def OnProcessClicked(self, evt):
-        self.presenter.Process()
+    def OnPopulationSpinCtrl(self, evt):
+        self.presenter.SetPopulationParam(evt.GetPosition())
 
+    def OnIterationsSpinCtrl(self, evt):
+        self.presenter.SetIterationParam(evt.GetPosition())
+
+    def OnRadioFixedClassParamClicked(self, evt):
+        self.presenter.RadioFixedClassParamClicked(evt.IsChecked())
+
+    def OnRadioVarClassParamClicked(self, evt):
+        self.presenter.RadioVarClassParamClicked(evt.IsChecked())
+
+    def OnProcessClicked(self, evt):
+        self.presenter.SetAlgorithm(self.view.getAlgorithmSelection(), "algorithm")
+        self.presenter.Process(False)
+
+    def OnGraphicClicked(self, evt):
+        self.presenter.Process(True)
